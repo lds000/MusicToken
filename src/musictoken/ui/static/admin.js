@@ -45,8 +45,8 @@
     $("pv-filament").textContent = meta.filament;
 
     const [top, bottom] = splitLabel($("f-label").value);
-    $("pv-top").textContent = top;
-    $("pv-bottom").textContent = bottom;
+    $("pv-top-path").textContent = top;
+    $("pv-bottom-path").textContent = bottom;
   }
   ["f-genre", "f-label"].forEach(id => $(id).addEventListener("input", updatePreview));
   $("f-genre").addEventListener("change", updatePreview);

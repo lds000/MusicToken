@@ -71,6 +71,9 @@ def create_app(
         static_folder="static",
     )
     app.config["JSON_SORT_KEYS"] = False
+    # Disable static-file caching so updates to admin.js / style.css show
+    # up on the next request without the user needing a hard-refresh.
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
     # -- Pages ----------------------------------------------------------
 

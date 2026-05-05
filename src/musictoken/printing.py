@@ -166,7 +166,7 @@ def render_chip_scad(chip: Chip) -> str:
         ("(unset)", "#888888", "any non-metallic matte PLA"),
     )
     return f"""// =====================================================================
-// MusicToken — generated top plate
+// MusicToken — generated top plate (arc text)
 // ---------------------------------------------------------------------
 // Chip uid     : {chip.uid}
 // Label        : {chip.label}
@@ -190,8 +190,11 @@ chamfer        = 0.2;
 band_height    = 4.2;
 band_raise     = 0.35;
 text_engrave   = 0.30;
-text_size      = 2.6;
+text_size      = 2.4;
 text_font      = "Liberation Sans:style=Bold";
+text_radius    = (plate_diameter/2) - (band_height/2) - 0.3;  // ~ 9.6 mm
+// Per-character arc step. Tweak between 9–12 deg if your text crowds or sprawls.
+char_arc_deg   = 10;
 center_ring_od = 6.5;
 center_ring_id = 4.5;
 notch_diameter = 1.2;
@@ -207,19 +210,15 @@ difference() {{
             center_ring(center_ring_od, center_ring_id, band_raise);
     }}
 
-    if (len(top_text) > 0)
-        translate([0, plate_diameter/2 - band_height/2 - 0.3,
-                   plate_height + band_raise - text_engrave])
-            linear_extrude(text_engrave + 0.05)
-                text(top_text, size = text_size, halign = "center",
-                     valign = "center", font = text_font);
+    // Engraved arc text on the top band.
+    translate([0, 0, plate_height + band_raise - text_engrave])
+        arc_text_top(top_text, text_radius, char_arc_deg,
+                     text_size, text_font, text_engrave + 0.05);
 
-    if (len(bottom_text) > 0)
-        translate([0, -(plate_diameter/2 - band_height/2 - 0.3),
-                   plate_height + band_raise - text_engrave])
-            linear_extrude(text_engrave + 0.05)
-                text(bottom_text, size = text_size, halign = "center",
-                     valign = "center", font = text_font);
+    // Engraved arc text on the bottom band (chars upright, reading L→R).
+    translate([0, 0, plate_height + band_raise - text_engrave])
+        arc_text_bottom(bottom_text, text_radius, char_arc_deg,
+                        text_size, text_font, text_engrave + 0.05);
 
     if (len(icon_letter) > 0)
         translate([0, 0, plate_height + band_raise - text_engrave])
@@ -255,5 +254,36 @@ module center_ring(od, id, raise) {{
         cylinder(d = od, h = raise);
         translate([0, 0, -0.05]) cylinder(d = id, h = raise + 0.1);
     }}
+}}
+
+// Place a string along the top arc, centered at 12 o'clock, characters
+// upright with their "tops" pointing radially outward.
+module arc_text_top(s, radius, char_arc, size, font, thickness) {{
+    n = len(s);
+    if (n > 0)
+        for (i = [0 : n-1]) {{
+            a = (i - (n-1)/2) * char_arc;
+            rotate([0, 0, -a])
+                translate([0, radius, 0])
+                linear_extrude(thickness)
+                text(s[i], size = size, halign = "center",
+                     valign = "center", font = font);
+        }}
+}}
+
+// Place a string along the bottom arc, centered at 6 o'clock, characters
+// upright as read from the front (tops point radially inward).
+module arc_text_bottom(s, radius, char_arc, size, font, thickness) {{
+    n = len(s);
+    if (n > 0)
+        for (i = [0 : n-1]) {{
+            a = (i - (n-1)/2) * char_arc;
+            rotate([0, 0, 180 + a])
+                translate([0, radius, 0])
+                rotate([0, 0, 180])
+                linear_extrude(thickness)
+                text(s[i], size = size, halign = "center",
+                     valign = "center", font = font);
+        }}
 }}
 """

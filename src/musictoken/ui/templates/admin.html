@@ -56,19 +56,26 @@
         <div class="preview-label">Live preview</div>
         <svg id="chip-preview" viewBox="-50 -50 100 100" width="220" height="220"
              aria-label="Chip face preview">
+          <defs>
+            <!-- text-path radius 38 = inside the raised band, centered radially -->
+            <path id="pv-arc-top"    d="M -38,0 A 38,38 0 0 0 38,0" fill="none"/>
+            <path id="pv-arc-bottom" d="M -38,0 A 38,38 0 0 1 38,0" fill="none"/>
+          </defs>
           <circle cx="0" cy="0" r="48" fill="#0e0f12"/>
-          <circle id="pv-disc"  cx="0" cy="0" r="46.4" fill="#475C7A"/>
-          <rect   id="pv-band-top"    x="-46.4" y="-44.6" width="92.8" height="8.4" fill="#0e0f12" opacity="0.18"/>
-          <rect   id="pv-band-bottom" x="-46.4" y="36.2"  width="92.8" height="8.4" fill="#0e0f12" opacity="0.18"/>
+          <circle id="pv-disc" cx="0" cy="0" r="46.4" fill="#475C7A"/>
+          <!-- subtle band rings to sell the silhouette -->
+          <circle cx="0" cy="0" r="42" fill="none" stroke="rgba(0,0,0,0.12)" stroke-width="8"/>
           <circle id="pv-ring-out" cx="0" cy="0" r="6.5" fill="#0e0f12" opacity="0.18"/>
           <circle id="pv-ring-in"  cx="0" cy="0" r="4.5" fill="#475C7A"/>
           <circle id="pv-notch"    cx="0" cy="-46" r="2.2" fill="#0e0f12"/>
-          <text id="pv-top"    x="0" y="-39" text-anchor="middle"
-                font-family="Inter, system-ui, sans-serif" font-weight="800"
-                font-size="6.2" fill="#0e0f12"></text>
-          <text id="pv-bottom" x="0" y="43"  text-anchor="middle"
-                font-family="Inter, system-ui, sans-serif" font-weight="800"
-                font-size="6.2" fill="#0e0f12"></text>
+          <text font-family="Inter, system-ui, sans-serif" font-weight="800"
+                font-size="6" letter-spacing="0.4" fill="#0e0f12">
+            <textPath id="pv-top-path" href="#pv-arc-top" startOffset="50%" text-anchor="middle"></textPath>
+          </text>
+          <text font-family="Inter, system-ui, sans-serif" font-weight="800"
+                font-size="6" letter-spacing="0.4" fill="#0e0f12">
+            <textPath id="pv-bottom-path" href="#pv-arc-bottom" startOffset="50%" text-anchor="middle"></textPath>
+          </text>
         </svg>
         <div class="preview-meta">
           <div><span id="pv-color-name">—</span></div>

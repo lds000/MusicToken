@@ -129,6 +129,10 @@ button.ghost.danger { color: var(--danger); border-color: #4a2222; }
 .chip-table th { color: var(--muted); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; }
 .chip-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .chip-table .small { font-size: 0.82rem; color: var(--muted); max-width: 320px; word-break: break-all; }
+.chip-table tbody tr { cursor: pointer; transition: background 100ms ease; }
+.chip-table tbody tr:hover { background: rgba(212, 166, 54, 0.06); }
+.chip-table .row-actions { white-space: nowrap; }
+.chip-table .row-actions button { padding: 4px 10px; margin-right: 4px; }
 .count {
   background: var(--panel-2); border: 1px solid var(--line); padding: 2px 10px;
   border-radius: 999px; font-size: 0.8rem; color: var(--muted); margin-left: 8px;

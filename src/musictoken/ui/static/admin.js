@@ -206,6 +206,10 @@
       tbody.prepend(row);
       $("chip-count").textContent = tbody.querySelectorAll("tr").length;
     }
+    row.dataset.label = chip.label || "";
+    row.dataset.genre = chip.genre || "";
+    row.dataset.action = chip.action_type || "";
+    row.dataset.payload = JSON.stringify(chip.payload || {});
     row.innerHTML = `
       <td class="mono">${escapeHtml(chip.uid)}</td>
       <td>${escapeHtml(chip.label || "")}</td>
@@ -213,21 +217,60 @@
       <td>${escapeHtml(chip.action_type || "")}</td>
       <td class="mono small">${escapeHtml(JSON.stringify(chip.payload || {}))}</td>
       <td>${chip.scan_count ?? 0}</td>
-      <td><button class="ghost danger" data-action="delete">Delete</button></td>
+      <td class="row-actions">
+        <button class="ghost" data-row-action="print" title="Save + download .scad">🖨</button>
+        <button class="ghost danger" data-row-action="delete" title="Delete">✕</button>
+      </td>
     `;
   }
 
-  document.addEventListener("click", async (e) => {
-    if (e.target.matches('[data-action="delete"]')) {
-      const row = e.target.closest("tr");
-      const uid = row.dataset.uid;
-      if (!confirm("Delete chip " + uid + "?")) return;
-      const res = await fetch("/api/chips/" + encodeURIComponent(uid), { method: "DELETE" });
-      if (res.ok) {
-        row.remove();
-        $("chip-count").textContent = $("chip-rows").querySelectorAll("tr").length;
+  function loadRowIntoForm(row) {
+    $("f-uid").value = row.dataset.uid || "";
+    $("f-label").value = row.dataset.label || "";
+    $("f-genre").value = row.dataset.genre || "";
+    $("f-action").value = row.dataset.action || "spotify";
+    let payload = row.dataset.payload || "{}";
+    try { payload = JSON.stringify(JSON.parse(payload), null, 2); } catch (_) {}
+    $("f-payload").value = payload;
+    updatePreview();
+    setMsg("Loaded " + row.dataset.uid + " — edit and Save / Print, or click 🖨 in the row.");
+    document.querySelector(".design-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function downloadScadFor(uid) {
+    const a = document.createElement("a");
+    a.href = "/api/chips/" + encodeURIComponent(uid) + "/scad";
+    a.download = "";
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  // Single delegated handler for the table.
+  document.getElementById("chip-rows").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-row-action]");
+    const row = e.target.closest("tr[data-uid]");
+    if (!row) return;
+    const uid = row.dataset.uid;
+
+    if (btn) {
+      e.stopPropagation();
+      const action = btn.dataset.rowAction;
+      if (action === "print") {
+        downloadScadFor(uid);
+        setMsg("Downloading " + uid + ".scad — open it in OpenSCAD, F6, Export STL.", "ok");
+        return;
+      }
+      if (action === "delete") {
+        if (!confirm("Delete chip " + uid + "?")) return;
+        const res = await fetch("/api/chips/" + encodeURIComponent(uid), { method: "DELETE" });
+        if (res.ok) {
+          row.remove();
+          $("chip-count").textContent = $("chip-rows").querySelectorAll("tr").length;
+        }
+        return;
       }
     }
+    // Row click (not on a button) → load into form.
+    loadRowIntoForm(row);
   });
 
   function escapeHtml(s) {

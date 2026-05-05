@@ -194,14 +194,18 @@
       </thead>
       <tbody id="chip-rows">
         {% for c in chips %}
-          <tr data-uid="{{ c.uid }}">
+          <tr data-uid="{{ c.uid }}" data-label="{{ c.label }}" data-genre="{{ c.genre }}"
+              data-action="{{ c.action_type }}" data-payload='{{ c.payload|tojson }}'>
             <td class="mono">{{ c.uid }}</td>
             <td>{{ c.label }}</td>
             <td>{{ c.genre }}</td>
             <td>{{ c.action_type }}</td>
             <td class="mono small">{{ c.payload|tojson }}</td>
             <td>{{ c.scan_count }}</td>
-            <td><button class="ghost danger" data-action="delete">Delete</button></td>
+            <td class="row-actions">
+              <button class="ghost" data-row-action="print" title="Save + download .scad">🖨</button>
+              <button class="ghost danger" data-row-action="delete" title="Delete">✕</button>
+            </td>
           </tr>
         {% endfor %}
       </tbody>

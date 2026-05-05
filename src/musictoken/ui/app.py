@@ -23,7 +23,14 @@ from ..ai.suggester import Suggester
 from ..events import EventBus
 from ..nfc.base import NFCReader
 from ..players.base import Player
-from ..printing import GENRE_COLORS, render_chip_scad, split_label
+from ..printing import (
+    GENRE_COLORS,
+    OpenSCADNotFound,
+    OpenSCADRenderError,
+    render_chip_scad,
+    render_chip_stl,
+    split_label,
+)
 from ..registry import ChipRegistry
 
 log = logging.getLogger(__name__)
@@ -56,6 +63,7 @@ def create_app(
     player: Player,
     bus: EventBus,
     suggester: Optional[Suggester] = None,
+    openscad_path: Optional[str] = None,
 ) -> Flask:
     app = Flask(
         __name__,
@@ -160,18 +168,48 @@ def create_app(
             abort(404, "no such chip")
         return ("", 204)
 
+    def _safe_filename(chip) -> str:
+        return "".join(
+            c if c.isalnum() or c in "-_" else "_" for c in (chip.label or chip.uid)
+        ).strip("_")[:40] or chip.uid
+
     @app.get("/api/chips/<uid>/scad")
     def api_chips_scad(uid: str) -> Any:
         chip = registry.get(uid.upper())
         if not chip:
             abort(404, "no such chip")
         body = render_chip_scad(chip)
-        safe = "".join(
-            c if c.isalnum() or c in "-_" else "_" for c in (chip.label or chip.uid)
-        ).strip("_")[:40] or chip.uid
+        safe = _safe_filename(chip)
         resp = Response(body, mimetype="application/x-scad")
         resp.headers["Content-Disposition"] = f'attachment; filename="{safe}.scad"'
         return resp
+
+    @app.get("/api/chips/<uid>/stl")
+    def api_chips_stl(uid: str) -> Any:
+        chip = registry.get(uid.upper())
+        if not chip:
+            abort(404, "no such chip")
+        try:
+            body = render_chip_stl(chip, openscad_path=openscad_path)
+        except OpenSCADNotFound as exc:
+            return jsonify({"error": str(exc), "kind": "openscad_missing"}), 503
+        except OpenSCADRenderError as exc:
+            return jsonify({"error": str(exc), "kind": "render_failed"}), 500
+        safe = _safe_filename(chip)
+        resp = Response(body, mimetype="application/sla")
+        resp.headers["Content-Disposition"] = f'attachment; filename="{safe}.stl"'
+        return resp
+
+    @app.get("/api/printing/status")
+    def api_printing_status() -> Any:
+        """Tells the UI whether server-side STL rendering is available."""
+        from ..printing import find_openscad
+
+        path = find_openscad(openscad_path)
+        return jsonify({
+            "openscad_available": bool(path),
+            "openscad_path": str(path) if path else None,
+        })
 
     @app.get("/api/print_meta")
     def api_print_meta() -> Any:

@@ -96,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
         player=player,
         bus=bus,
         suggester=suggester,
+        openscad_path=cfg.get("printing.openscad_path"),
     )
 
     host = args.host or cfg.get("app.host", "0.0.0.0")

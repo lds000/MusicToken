@@ -25,6 +25,16 @@ nfc:
     bus: 0
     device: 0
 
+printing:
+  # Path to the OpenSCAD CLI. Leave blank to auto-discover (PATH +
+  # standard install locations + the OPENSCAD env var).
+  # Required for the /api/chips/<uid>/stl endpoint and the GUI Print
+  # button. Without it, the UI falls back to .scad downloads.
+  # Windows install: winget install OpenSCAD.OpenSCAD
+  # macOS:           brew install openscad
+  # Debian/Ubuntu:   sudo apt install openscad
+  openscad_path: ""
+
 player:
   # backend options: mock | spotify | vlc
   backend: mock

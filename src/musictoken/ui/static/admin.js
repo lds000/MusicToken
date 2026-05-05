@@ -9,7 +9,24 @@
 
   // --- Live preview ------------------------------------------------------
   let printMeta = {};
+  let stlAvailable = false;
   fetch("/api/print_meta").then(r => r.json()).then(d => { printMeta = d; updatePreview(); });
+  fetch("/api/printing/status").then(r => r.json()).then(d => {
+    stlAvailable = !!d.openscad_available;
+    updatePrintBadge();
+  });
+
+  function updatePrintBadge() {
+    const btn = $("btn-print");
+    if (!btn) return;
+    if (stlAvailable) {
+      btn.textContent = "🖨 Print chip (save + download .stl)";
+      btn.title = "Save chip and download an STL ready for Creality Print";
+    } else {
+      btn.textContent = "🖨 Print chip (save + download .scad)";
+      btn.title = "OpenSCAD not found — falling back to .scad. Install OpenSCAD to get STL directly.";
+    }
+  }
 
   function splitLabel(label) {
     label = (label || "").toUpperCase();
@@ -65,26 +82,68 @@
     }
   });
 
-  // --- Print: save + download .scad --------------------------------------
+  // --- Print: save + download (STL preferred, .scad fallback) -----------
   $("btn-print").addEventListener("click", async () => {
     if (!$("f-label").value.trim()) {
       setMsg("Add a label before printing.", "err"); return;
     }
-    setMsg("Saving and generating .scad…");
+    if (stlAvailable) {
+      $("form-msg").innerHTML = 'Saving and rendering STL (~15–20 s) <span class="spinner"></span>';
+      $("form-msg").className = "form-msg";
+    } else {
+      setMsg("Saving and generating .scad…");
+    }
     try {
       const chip = await saveChip();
       $("f-uid").value = chip.uid;
       addOrUpdateRow(chip);
-      // Trigger download via a hidden anchor.
-      const a = document.createElement("a");
-      a.href = "/api/chips/" + encodeURIComponent(chip.uid) + "/scad";
-      a.download = "";
-      document.body.appendChild(a); a.click(); a.remove();
-      setMsg("Saved as " + chip.uid + ". Open the .scad in OpenSCAD → F6 → Export STL.", "ok");
+      const fmt = await downloadFor(chip.uid);
+      const verb = fmt === "stl"
+        ? "Downloaded " + chip.uid + ".stl — opens in your default STL app (Creality Print)."
+        : "Downloaded " + chip.uid + ".scad — open in OpenSCAD → F6 → Export STL.";
+      setMsg(verb, "ok");
     } catch (err) {
       setMsg("Print failed: " + err.message, "err");
     }
   });
+
+  // Returns the format that ended up downloading ("stl" or "scad").
+  async function downloadFor(uid) {
+    if (stlAvailable) {
+      // Probe with GET; if 503, OpenSCAD is missing → fall back.
+      const head = await fetch("/api/chips/" + encodeURIComponent(uid) + "/stl",
+                               { method: "GET" });
+      if (head.ok) {
+        // Re-trigger as a download via anchor (we already have the bytes
+        // but a fresh GET via <a> kicks the browser's download UI).
+        const blob = await head.blob();
+        triggerBlobDownload(blob, uid + ".stl");
+        return "stl";
+      }
+      const err = await head.json().catch(() => ({}));
+      if (err.kind === "openscad_missing") {
+        stlAvailable = false;
+        updatePrintBadge();
+        setMsg("OpenSCAD not installed — falling back to .scad. " +
+               "Install with: winget install OpenSCAD.OpenSCAD", "err");
+      } else {
+        setMsg("STL render failed: " + (err.error || head.statusText) + " — falling back to .scad", "err");
+      }
+    }
+    const a = document.createElement("a");
+    a.href = "/api/chips/" + encodeURIComponent(uid) + "/scad";
+    a.download = "";
+    document.body.appendChild(a); a.click(); a.remove();
+    return "scad";
+  }
+
+  function triggerBlobDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   // --- Claim: re-key DESIGN-... to the latest real scan ------------------
   $("btn-claim").addEventListener("click", async () => {
@@ -237,11 +296,12 @@
     document.querySelector(".design-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function downloadScadFor(uid) {
-    const a = document.createElement("a");
-    a.href = "/api/chips/" + encodeURIComponent(uid) + "/scad";
-    a.download = "";
-    document.body.appendChild(a); a.click(); a.remove();
+  // Trigger an STL (preferred) or .scad download for the given chip.
+  async function downloadFromRow(uid) {
+    const fmt = await downloadFor(uid);
+    setMsg("Downloaded " + uid + "." + fmt + (fmt === "stl"
+      ? " — opens in your default STL app (Creality Print)."
+      : " — open in OpenSCAD → F6 → Export STL."), "ok");
   }
 
   // Single delegated handler for the table.
@@ -255,8 +315,7 @@
       e.stopPropagation();
       const action = btn.dataset.rowAction;
       if (action === "print") {
-        downloadScadFor(uid);
-        setMsg("Downloading " + uid + ".scad — open it in OpenSCAD, F6, Export STL.", "ok");
+        downloadFromRow(uid);
         return;
       }
       if (action === "delete") {

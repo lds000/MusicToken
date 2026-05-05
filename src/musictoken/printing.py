@@ -1,15 +1,29 @@
-"""Per-chip OpenSCAD generation.
+"""Per-chip OpenSCAD generation + STL rendering.
 
 Renders a parametric top-plate model with the chip's text + genre baked
-into the parameter block. The model itself mirrors hardware/chip_top.scad;
-keeping a copy here means the printable .scad file is fully standalone
-(the user can open it in OpenSCAD without anything else from the repo).
+into the parameter block. Two output formats are supported:
+
+- :func:`render_chip_scad` — returns the OpenSCAD source (always works).
+- :func:`render_chip_stl`  — invokes the OpenSCAD CLI to produce an STL
+  the user can drop into Creality Print / Orca / Cura / Prusa Slicer.
+
+If OpenSCAD is not installed, :func:`render_chip_stl` raises
+:class:`OpenSCADNotFound` with a clear install hint so the UI can fall
+back to the .scad download.
 """
 from __future__ import annotations
 
-from typing import Tuple
+import logging
+import os
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+from typing import Optional, Tuple
 
 from .registry import Chip
+
+log = logging.getLogger(__name__)
 
 # Genre → (display name, hex color, suggested filament). The hex is used
 # by the live SVG preview; the filament hint is embedded as a comment in
@@ -44,6 +58,104 @@ def split_label(label: str) -> Tuple[str, str]:
 def _scad_string(s: str) -> str:
     """Escape a string for safe embedding inside OpenSCAD double quotes."""
     return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+class OpenSCADNotFound(RuntimeError):
+    """Raised when the OpenSCAD CLI can't be located."""
+
+
+class OpenSCADRenderError(RuntimeError):
+    """Raised when OpenSCAD ran but failed to produce an STL."""
+
+
+def find_openscad(explicit: Optional[str] = None) -> Optional[Path]:
+    """Locate the OpenSCAD CLI.
+
+    Search order:
+      1. Explicit path argument (from config).
+      2. ``OPENSCAD`` environment variable.
+      3. ``openscad`` / ``openscad.exe`` on ``PATH``.
+      4. Common install locations on Windows / macOS / Linux.
+    """
+    if explicit:
+        p = Path(explicit)
+        if p.exists():
+            return p
+
+    env = os.environ.get("OPENSCAD")
+    if env:
+        p = Path(env)
+        if p.exists():
+            return p
+
+    found = shutil.which("openscad") or shutil.which("openscad.exe")
+    if found:
+        return Path(found)
+
+    candidates = [
+        Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+            / "OpenSCAD" / "openscad.exe",
+        Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
+            / "OpenSCAD" / "openscad.exe",
+        Path(os.environ.get("LOCALAPPDATA", ""))
+            / "Programs" / "OpenSCAD" / "openscad.exe",
+        Path("/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD"),
+        Path("/usr/local/bin/openscad"),
+        Path("/usr/bin/openscad"),
+    ]
+    for c in candidates:
+        try:
+            if c.exists():
+                return c
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def render_chip_stl(
+    chip: Chip,
+    *,
+    openscad_path: Optional[str] = None,
+    timeout: float = 60.0,
+) -> bytes:
+    """Render an STL for the chip via the OpenSCAD CLI.
+
+    Raises :class:`OpenSCADNotFound` if OpenSCAD is missing, or
+    :class:`OpenSCADRenderError` if the render fails.
+    """
+    osc = find_openscad(openscad_path)
+    if not osc:
+        raise OpenSCADNotFound(
+            "OpenSCAD is not installed (or not on PATH). Install it from "
+            "https://openscad.org/downloads.html, or set "
+            "printing.openscad_path in config.yaml. On Windows you can also "
+            "run:  winget install OpenSCAD.OpenSCAD"
+        )
+
+    scad_source = render_chip_scad(chip)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        scad_path = Path(tmpdir) / "chip.scad"
+        stl_path = Path(tmpdir) / "chip.stl"
+        scad_path.write_text(scad_source, encoding="utf-8")
+        cmd = [str(osc), "-o", str(stl_path), str(scad_path)]
+        log.info("OpenSCAD render: %s", " ".join(cmd))
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise OpenSCADRenderError(
+                f"OpenSCAD timed out after {timeout:.0f}s rendering chip {chip.uid}"
+            ) from exc
+        if proc.returncode != 0 or not stl_path.exists():
+            stderr = proc.stderr.decode("utf-8", errors="replace")[:800]
+            raise OpenSCADRenderError(
+                f"OpenSCAD exited {proc.returncode}: {stderr or '(no stderr)'}"
+            )
+        return stl_path.read_bytes()
 
 
 def render_chip_scad(chip: Chip) -> str:

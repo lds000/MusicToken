@@ -51,6 +51,38 @@ the same parametric model — edit the parameters block at the top.
    - **No** supports, **no** brim
    - Print on textured / smooth PEI; the bottom face is the bond face
 
+### Creality K1C profile (single-extruder, PEI textured plate)
+
+Tuned for PolyTerra Matte PLA. Drop into Orca-Creality or Creality
+Print 5.x:
+
+| Setting | Value |
+|---|---|
+| Layer height | **0.12 mm** (first layer 0.20 mm) |
+| Walls / top / bottom | 4 / 5 / 4 |
+| Infill | 100% gyroid |
+| Outer wall speed | 120 mm/s |
+| Inner wall / infill | 250–300 mm/s |
+| Travel | 500 mm/s |
+| Nozzle (PolyTerra Matte) | **210 °C** |
+| Bed | 60 °C (door cracked for PLA) |
+| Part cooling | 100% from layer 2 |
+| Z-hop | 0.4 mm |
+| Supports / brim | none |
+
+K1C-specific notes:
+
+- The PEI textured plate's stipple on the bond face actually *helps*
+  3M 468MP grip — it's a feature.
+- Skip M600 filament-swap tricks for the engraving; paint-fill is
+  faster and looks identical with a single-extruder machine.
+- Crack the chamber door slightly when printing PLA to keep chamber
+  under ~35 °C. Closed door is for ABS only.
+- Re-mesh once before a print run; the K1C's strain-gauge mesh drifts
+  a touch after a cold start.
+- Batch 12–25 chips per plate at one color, then swap filament for the
+  next genre. ~1.5–2 h per plate.
+
 ### Filament per genre
 
 PolyTerra Matte PLA is the recommended default — saturated colors,

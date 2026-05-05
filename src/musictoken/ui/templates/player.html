@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}MusicToken — Player{% endblock %}
+{% block body_class %}player-body{% endblock %}
+{% block content %}
+<section class="now-playing" id="now-playing">
+  <div class="np-cover" id="np-cover"></div>
+  <div class="np-meta">
+    <div class="np-state" id="np-state">Idle</div>
+    <h1 class="np-title" id="np-title">Tap a chip</h1>
+    <h2 class="np-artist" id="np-artist"></h2>
+    <div class="np-source" id="np-source"></div>
+  </div>
+</section>
+
+<section class="last-scan" id="last-scan">
+  <div class="ls-label">Last scan</div>
+  <div class="ls-uid" id="ls-uid">—</div>
+  <div class="ls-chip" id="ls-chip"></div>
+</section>
+
+<section class="controls">
+  <button class="ctl" data-verb="pause">⏸ Pause</button>
+  <button class="ctl" data-verb="resume">▶ Resume</button>
+  <button class="ctl" data-verb="skip">⏭ Skip</button>
+  <button class="ctl ctl-stop" data-verb="stop">⏹ Stop</button>
+  <button class="ctl ctl-wild" data-verb="wild">🎲 WILD</button>
+</section>
+
+<section class="genre-grid">
+  {% for slug, label, color in genres %}
+    <div class="genre-tile" style="--g:{{ color }}">{{ label }}</div>
+  {% endfor %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='player.js') }}"></script>
+{% endblock %}

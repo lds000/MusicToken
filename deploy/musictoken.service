@@ -1,0 +1,16 @@
+[Unit]
+Description=MusicToken NFC service
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/musictoken
+ExecStart=/opt/musictoken/.venv/bin/python -m musictoken --config /opt/musictoken/config/config.yaml
+Restart=on-failure
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

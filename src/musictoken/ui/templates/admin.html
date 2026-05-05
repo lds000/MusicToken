@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}MusicToken — Admin{% endblock %}
+{% block body_class %}admin-body{% endblock %}
+{% block content %}
+<div class="admin-grid">
+  <section class="card">
+    <h2>Program a chip</h2>
+    <p class="hint">Tap a chip on the reader (or use Simulate scan). The latest scan UID
+       autofills below.</p>
+
+    <form id="chip-form">
+      <label>UID
+        <input type="text" name="uid" id="f-uid" required placeholder="04A2B3C4D5E6F7">
+      </label>
+      <label>Label
+        <input type="text" name="label" id="f-label" placeholder="EAGLES / HOTEL CALIFORNIA">
+      </label>
+      <label>Genre
+        <select name="genre" id="f-genre">
+          <option value="">—</option>
+          {% for slug, label, color in genres %}
+            <option value="{{ slug }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Action
+        <select name="action_type" id="f-action">
+          {% for slug, label in actions %}
+            <option value="{{ slug }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Payload (JSON)
+        <textarea name="payload" id="f-payload" rows="4"
+                  placeholder='{"uri": "spotify:album:1DFixLWuPkv3KT3TnV35m3"}'></textarea>
+      </label>
+      <div class="row">
+        <button type="submit" class="primary">Save chip</button>
+        <button type="button" id="btn-autofill" class="ghost" title="Use AI to fill label/genre">
+          ✨ AI autofill
+        </button>
+        <button type="button" id="btn-simulate" class="ghost">Simulate scan</button>
+      </div>
+      <div class="form-msg" id="form-msg"></div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>✨ AI suggestions</h2>
+    <p class="hint">Describe a vibe and the AI will propose chips you can one-click add.</p>
+    <form id="suggest-form">
+      <label>Prompt
+        <input type="text" name="prompt" id="sg-prompt"
+               placeholder="late-night driving music, round out my norway collection, kid-friendly party…">
+      </label>
+      <label>Count
+        <input type="number" name="count" id="sg-count" value="6" min="1" max="20">
+      </label>
+      <button type="submit" class="primary">Suggest chips</button>
+    </form>
+    <div id="suggest-results" class="suggest-results"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Registered chips <span class="count" id="chip-count">{{ chips|length }}</span></h2>
+    <table class="chip-table">
+      <thead>
+        <tr>
+          <th>UID</th><th>Label</th><th>Genre</th><th>Action</th>
+          <th>Payload</th><th>Scans</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="chip-rows">
+        {% for c in chips %}
+          <tr data-uid="{{ c.uid }}">
+            <td class="mono">{{ c.uid }}</td>
+            <td>{{ c.label }}</td>
+            <td>{{ c.genre }}</td>
+            <td>{{ c.action_type }}</td>
+            <td class="mono small">{{ c.payload|tojson }}</td>
+            <td>{{ c.scan_count }}</td>
+            <td><button class="ghost danger" data-action="delete">Delete</button></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='admin.js') }}"></script>
+{% endblock %}

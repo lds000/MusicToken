@@ -1,0 +1,7 @@
+# Pi-only hardware drivers. Install on the Raspberry Pi in addition to
+# requirements.txt:  pip install -r requirements.txt -r requirements-pi.txt
+adafruit-circuitpython-pn532>=2.4
+adafruit-blinka>=8.0
+mfrc522>=0.0.7
+RPi.GPIO>=0.7
+python-vlc>=3.0

@@ -146,6 +146,57 @@ button.ghost.danger { color: var(--danger); border-color: #4a2222; }
   font-size: 0.8rem; color: var(--muted); margin-top: 4px; word-break: break-all; }
 .suggest-card .sc-add { padding: 8px 14px; }
 
+/* Hardware tips card */
+.tips summary { cursor: pointer; list-style: none; user-select: none; }
+.tips summary::-webkit-details-marker { display: none; }
+.tips summary h2::before { content: "▾ "; color: var(--muted); margin-right: 4px; font-weight: 400; }
+.tips:not([open]) summary h2::before { content: "▸ "; }
+.tips-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 22px;
+  margin-top: 14px;
+}
+@media (max-width: 900px) { .tips-grid { grid-template-columns: 1fr; } }
+.tips h3 {
+  margin: 14px 0 6px; font-size: 0.92rem; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--muted); font-weight: 600;
+}
+.tips h3:first-child { margin-top: 0; }
+.tip-list { margin: 4px 0 0 1.1rem; padding: 0; }
+.tip-list li { margin: 4px 0; line-height: 1.4; }
+.tip-list li.muted { color: var(--muted); }
+
+.filament-table { width: 100%; border-collapse: collapse; }
+.filament-table th, .filament-table td {
+  text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line);
+  font-size: 0.92rem; vertical-align: middle;
+}
+.filament-table th {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); font-weight: 500;
+}
+.swatch {
+  display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+  margin-right: 8px; vertical-align: -3px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+}
+
+/* Design + preview pane */
+.design-grid {
+  display: grid; grid-template-columns: 1fr 240px; gap: 18px;
+}
+@media (max-width: 720px) { .design-grid { grid-template-columns: 1fr; } }
+.preview {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding-top: 10px;
+}
+.preview-label {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.16em;
+  color: var(--muted);
+}
+.preview-meta { text-align: center; }
+.preview-meta .small { font-size: 0.78rem; }
+.muted { color: var(--muted); }
+
 .spinner {
   display: inline-block; width: 14px; height: 14px;
   border: 2px solid var(--line); border-top-color: var(--accent);

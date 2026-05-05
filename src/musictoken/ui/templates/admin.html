@@ -4,45 +4,78 @@
 {% block content %}
 <div class="admin-grid">
   <section class="card">
-    <h2>Program a chip</h2>
-    <p class="hint">Tap a chip on the reader (or use Simulate scan). The latest scan UID
-       autofills below.</p>
+    <h2>Design &amp; print a chip</h2>
+    <p class="hint">Design first, print second, claim a real tag third. UID is
+       optional — leave blank and we'll issue a <code>DESIGN-…</code> placeholder.
+       After you glue the printed plate to a PVC coin, tap it on the reader and
+       hit <strong>Claim</strong> to migrate the design to the real UID.</p>
 
-    <form id="chip-form">
-      <label>UID
-        <input type="text" name="uid" id="f-uid" required placeholder="04A2B3C4D5E6F7">
-      </label>
-      <label>Label
-        <input type="text" name="label" id="f-label" placeholder="EAGLES / HOTEL CALIFORNIA">
-      </label>
-      <label>Genre
-        <select name="genre" id="f-genre">
-          <option value="">—</option>
-          {% for slug, label, color in genres %}
-            <option value="{{ slug }}">{{ label }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Action
-        <select name="action_type" id="f-action">
-          {% for slug, label in actions %}
-            <option value="{{ slug }}">{{ label }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Payload (JSON)
-        <textarea name="payload" id="f-payload" rows="4"
-                  placeholder='{"uri": "spotify:album:1DFixLWuPkv3KT3TnV35m3"}'></textarea>
-      </label>
-      <div class="row">
-        <button type="submit" class="primary">Save chip</button>
-        <button type="button" id="btn-autofill" class="ghost" title="Use AI to fill label/genre">
-          ✨ AI autofill
-        </button>
-        <button type="button" id="btn-simulate" class="ghost">Simulate scan</button>
-      </div>
-      <div class="form-msg" id="form-msg"></div>
-    </form>
+    <div class="design-grid">
+      <form id="chip-form">
+        <label>UID <span class="muted">(optional)</span>
+          <input type="text" name="uid" id="f-uid" placeholder="(auto: DESIGN-XXXXXXXX)">
+        </label>
+        <label>Label
+          <input type="text" name="label" id="f-label" placeholder="EAGLES / HOTEL CALIFORNIA">
+        </label>
+        <label>Genre
+          <select name="genre" id="f-genre">
+            <option value="">—</option>
+            {% for slug, label, color in genres %}
+              <option value="{{ slug }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Action
+          <select name="action_type" id="f-action">
+            {% for slug, label in actions %}
+              <option value="{{ slug }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Payload (JSON)
+          <textarea name="payload" id="f-payload" rows="4"
+                    placeholder='{"uri": "spotify:album:1DFixLWuPkv3KT3TnV35m3"}'></textarea>
+        </label>
+        <div class="row">
+          <button type="button" id="btn-print" class="primary" title="Save + download .scad for OpenSCAD">
+            🖨 Print chip (save + download .scad)
+          </button>
+          <button type="submit" class="ghost">Save only</button>
+          <button type="button" id="btn-autofill" class="ghost" title="Use AI to fill label/genre">
+            ✨ AI autofill
+          </button>
+          <button type="button" id="btn-claim" class="ghost" title="Migrate this DESIGN-… to the latest scanned UID">
+            🔗 Claim last scan
+          </button>
+        </div>
+        <div class="form-msg" id="form-msg"></div>
+      </form>
+
+      <aside class="preview">
+        <div class="preview-label">Live preview</div>
+        <svg id="chip-preview" viewBox="-50 -50 100 100" width="220" height="220"
+             aria-label="Chip face preview">
+          <circle cx="0" cy="0" r="48" fill="#0e0f12"/>
+          <circle id="pv-disc"  cx="0" cy="0" r="46.4" fill="#475C7A"/>
+          <rect   id="pv-band-top"    x="-46.4" y="-44.6" width="92.8" height="8.4" fill="#0e0f12" opacity="0.18"/>
+          <rect   id="pv-band-bottom" x="-46.4" y="36.2"  width="92.8" height="8.4" fill="#0e0f12" opacity="0.18"/>
+          <circle id="pv-ring-out" cx="0" cy="0" r="6.5" fill="#0e0f12" opacity="0.18"/>
+          <circle id="pv-ring-in"  cx="0" cy="0" r="4.5" fill="#475C7A"/>
+          <circle id="pv-notch"    cx="0" cy="-46" r="2.2" fill="#0e0f12"/>
+          <text id="pv-top"    x="0" y="-39" text-anchor="middle"
+                font-family="Inter, system-ui, sans-serif" font-weight="800"
+                font-size="6.2" fill="#0e0f12"></text>
+          <text id="pv-bottom" x="0" y="43"  text-anchor="middle"
+                font-family="Inter, system-ui, sans-serif" font-weight="800"
+                font-size="6.2" fill="#0e0f12"></text>
+        </svg>
+        <div class="preview-meta">
+          <div><span id="pv-color-name">—</span></div>
+          <div class="muted small" id="pv-filament">pick a genre for filament hint</div>
+        </div>
+      </aside>
+    </div>
   </section>
 
   <section class="card">
@@ -59,6 +92,73 @@
       <button type="submit" class="primary">Suggest chips</button>
     </form>
     <div id="suggest-results" class="suggest-results"></div>
+  </section>
+
+  <section class="card wide">
+    <details class="tips" open>
+      <summary><h2 style="display:inline">🛠 Hardware tips — filament, glue &amp; finishing</h2></summary>
+
+      <div class="tips-grid">
+        <div>
+          <h3>Filament per genre</h3>
+          <p class="hint">PolyTerra Matte PLA is the recommended default — saturated color,
+             hides layer lines on a thin disc, prints clean at 0.12&nbsp;mm. Avoid metallic /
+             silk / glitter / carbon-fill / stainless-fill: metal flake attenuates NFC.</p>
+          <table class="filament-table">
+            <thead><tr><th>Genre</th><th>Color</th><th>Filament</th></tr></thead>
+            <tbody>
+              {% for slug, label, _color in genres %}
+                {% set f = filaments[slug] %}
+                {% if f %}
+                <tr>
+                  <td>{{ label }}</td>
+                  <td><span class="swatch" style="background:{{ f.hex }}"></span>{{ f.name }}</td>
+                  <td>{{ f.filament }}</td>
+                </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <h3>Base coin</h3>
+          <ul class="tip-list">
+            <li>Standard <strong>NTAG215 25&nbsp;mm PVC coin</strong> (~1&nbsp;mm thick).
+                Verified: Amazon ASIN <code>B09L7LBYZ3</code>.</li>
+            <li>Total stack with the 0.8&nbsp;mm top plate ≈ 1.8&nbsp;mm — well within
+                read range for any PN532/RC522.</li>
+            <li>You don't program the chip. MusicToken reads the factory hardware UID;
+                blank coins out of the bag are fine.</li>
+          </ul>
+
+          <h3>Print settings</h3>
+          <ul class="tip-list">
+            <li>Layer height <strong>0.12&nbsp;mm</strong>, infill <strong>100%</strong>.</li>
+            <li>No supports, no brim. Bottom face is the bond face.</li>
+          </ul>
+
+          <h3>Glue (best → fastest)</h3>
+          <ol class="tip-list">
+            <li><strong>3M 468MP transfer tape, 25&nbsp;mm round die-cut</strong> — peel,
+                stick, press 5&nbsp;s. Best for batches. <span class="muted small">Search
+                Aliexpress: "25mm 3M 468MP round".</span></li>
+            <li><strong>Loctite Super Glue Liquid Universal</strong> — thin <em>ring</em>
+                around the edge only. Don't pool in the center (CA fogs).</li>
+            <li class="muted">Avoid: hot glue, epoxy, Gorilla Original (foams).</li>
+          </ol>
+
+          <h3>Prep + paint-fill</h3>
+          <ul class="tip-list">
+            <li>Light <strong>400-grit</strong> pass on both mating faces, wipe with
+                <strong>91%+ IPA</strong>. Roughly doubles bond strength.</li>
+            <li>For paint-fill: brush acrylic over the top, wait ~30&nbsp;s, wipe with
+                damp microfiber. Paint stays in the engraved letters.</li>
+            <li>White or silver paint on dark filaments; black paint on light.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
   </section>
 
   <section class="card wide">

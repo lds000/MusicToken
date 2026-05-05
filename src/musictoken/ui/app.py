@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import queue
+import secrets
 from typing import Any, Dict, Optional
 
 from flask import (
@@ -22,6 +23,7 @@ from ..ai.suggester import Suggester
 from ..events import EventBus
 from ..nfc.base import NFCReader
 from ..players.base import Player
+from ..printing import GENRE_COLORS, render_chip_scad, split_label
 from ..registry import ChipRegistry
 
 log = logging.getLogger(__name__)
@@ -70,11 +72,16 @@ def create_app(
 
     @app.route("/admin")
     def admin() -> str:
+        filaments = {
+            slug: {"name": name, "hex": hex_, "filament": filament}
+            for slug, (name, hex_, filament) in GENRE_COLORS.items()
+        }
         return render_template(
             "admin.html",
             chips=[c.to_dict() for c in registry.all()],
             genres=GENRES,
             actions=ACTION_TYPES,
+            filaments=filaments,
         )
 
     # -- API ------------------------------------------------------------
@@ -98,8 +105,11 @@ def create_app(
     def api_chips_create() -> Any:
         data = request.get_json(silent=True) or request.form.to_dict()
         uid = (data.get("uid") or "").strip().upper()
+        # Allow saving a designed chip before a physical tag exists by
+        # auto-issuing a placeholder UID. Real scans later can be claimed
+        # to this design via /api/chips/<uid>/claim.
         if not uid:
-            abort(400, "uid is required")
+            uid = "DESIGN-" + secrets.token_hex(4).upper()
         payload = _coerce_payload(data.get("payload"))
         chip = registry.upsert(
             uid=uid,
@@ -110,12 +120,66 @@ def create_app(
         )
         return jsonify(chip.to_dict()), 201
 
+    @app.post("/api/chips/<uid>/claim")
+    def api_chips_claim(uid: str) -> Any:
+        """Re-key a 'DESIGN-...' chip to the UID of a real NFC tag.
+
+        Use this after you've printed the top plate and stuck it on a
+        physical tag: tap the tag (or pass new_uid in the body), and the
+        registry row is migrated to the real UID.
+        """
+        data = request.get_json(silent=True) or {}
+        new_uid = (data.get("new_uid") or "").strip().upper()
+        if not new_uid:
+            last = bus.last("scan")
+            if last and last.payload.get("uid"):
+                new_uid = str(last.payload["uid"]).upper()
+        if not new_uid:
+            abort(400, "no new_uid provided and no recent scan to use")
+
+        existing = registry.get(uid.upper())
+        if not existing:
+            abort(404, "no such design")
+        if registry.get(new_uid):
+            abort(409, f"a chip with uid {new_uid} already exists")
+
+        chip = registry.upsert(
+            uid=new_uid,
+            label=existing.label,
+            genre=existing.genre,
+            action_type=existing.action_type,
+            payload=existing.payload,
+        )
+        registry.delete(uid.upper())
+        return jsonify(chip.to_dict())
+
     @app.delete("/api/chips/<uid>")
     def api_chips_delete(uid: str) -> Any:
         ok = registry.delete(uid.upper())
         if not ok:
             abort(404, "no such chip")
         return ("", 204)
+
+    @app.get("/api/chips/<uid>/scad")
+    def api_chips_scad(uid: str) -> Any:
+        chip = registry.get(uid.upper())
+        if not chip:
+            abort(404, "no such chip")
+        body = render_chip_scad(chip)
+        safe = "".join(
+            c if c.isalnum() or c in "-_" else "_" for c in (chip.label or chip.uid)
+        ).strip("_")[:40] or chip.uid
+        resp = Response(body, mimetype="application/x-scad")
+        resp.headers["Content-Disposition"] = f'attachment; filename="{safe}.scad"'
+        return resp
+
+    @app.get("/api/print_meta")
+    def api_print_meta() -> Any:
+        """Genre → color + filament reference for the live preview."""
+        return jsonify({
+            slug: {"name": name, "hex": hex_, "filament": filament}
+            for slug, (name, hex_, filament) in GENRE_COLORS.items()
+        })
 
     @app.post("/api/scan")
     def api_simulate_scan() -> Any:

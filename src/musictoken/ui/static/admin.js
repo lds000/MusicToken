@@ -7,9 +7,35 @@
     el.className = "form-msg" + (kind ? " " + kind : "");
   }
 
-  // --- Form submit -------------------------------------------------------
-  $("chip-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
+  // --- Live preview ------------------------------------------------------
+  let printMeta = {};
+  fetch("/api/print_meta").then(r => r.json()).then(d => { printMeta = d; updatePreview(); });
+
+  function splitLabel(label) {
+    label = (label || "").toUpperCase();
+    const sep = label.includes(" / ") ? " / " : (label.includes("/") ? "/" : null);
+    if (!sep) return [label.slice(0, 12), ""];
+    const i = label.indexOf(sep);
+    return [label.slice(0, i).trim().slice(0, 12), label.slice(i + sep.length).trim().slice(0, 12)];
+  }
+
+  function updatePreview() {
+    const genre = $("f-genre").value;
+    const meta = printMeta[genre] || { name: "—", hex: "#475C7A", filament: "pick a genre for filament hint" };
+    $("pv-disc").setAttribute("fill", meta.hex);
+    $("pv-ring-in").setAttribute("fill", meta.hex);
+    $("pv-color-name").textContent = meta.name;
+    $("pv-filament").textContent = meta.filament;
+
+    const [top, bottom] = splitLabel($("f-label").value);
+    $("pv-top").textContent = top;
+    $("pv-bottom").textContent = bottom;
+  }
+  ["f-genre", "f-label"].forEach(id => $(id).addEventListener("input", updatePreview));
+  $("f-genre").addEventListener("change", updatePreview);
+
+  // --- Save chip (returns the saved chip dict) ---------------------------
+  async function saveChip() {
     const body = {
       uid: $("f-uid").value.trim(),
       label: $("f-label").value.trim(),
@@ -17,31 +43,71 @@
       action_type: $("f-action").value,
       payload: $("f-payload").value.trim(),
     };
+    const res = await fetch("/api/chips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return await res.json();
+  }
+
+  $("chip-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
     setMsg("Saving…");
     try {
-      const res = await fetch("/api/chips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const chip = await res.json();
+      const chip = await saveChip();
+      $("f-uid").value = chip.uid;
       addOrUpdateRow(chip);
-      setMsg("Saved.", "ok");
+      setMsg("Saved as " + chip.uid + ".", "ok");
     } catch (err) {
       setMsg("Save failed: " + err.message, "err");
     }
   });
 
-  $("btn-simulate").addEventListener("click", async () => {
+  // --- Print: save + download .scad --------------------------------------
+  $("btn-print").addEventListener("click", async () => {
+    if (!$("f-label").value.trim()) {
+      setMsg("Add a label before printing.", "err"); return;
+    }
+    setMsg("Saving and generating .scad…");
+    try {
+      const chip = await saveChip();
+      $("f-uid").value = chip.uid;
+      addOrUpdateRow(chip);
+      // Trigger download via a hidden anchor.
+      const a = document.createElement("a");
+      a.href = "/api/chips/" + encodeURIComponent(chip.uid) + "/scad";
+      a.download = "";
+      document.body.appendChild(a); a.click(); a.remove();
+      setMsg("Saved as " + chip.uid + ". Open the .scad in OpenSCAD → F6 → Export STL.", "ok");
+    } catch (err) {
+      setMsg("Print failed: " + err.message, "err");
+    }
+  });
+
+  // --- Claim: re-key DESIGN-... to the latest real scan ------------------
+  $("btn-claim").addEventListener("click", async () => {
     const uid = $("f-uid").value.trim();
-    if (!uid) { setMsg("Enter a UID first.", "err"); return; }
-    await fetch("/api/scan", {
+    if (!uid) { setMsg("No design loaded — save first.", "err"); return; }
+    if (!uid.startsWith("DESIGN-")) {
+      if (!confirm("This UID isn't a DESIGN- placeholder. Claim anyway?")) return;
+    }
+    setMsg("Tap a real chip on the reader, then click Claim again. Or claim the last scan now.");
+    const res = await fetch("/api/chips/" + encodeURIComponent(uid) + "/claim", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uid }),
+      body: JSON.stringify({}),
     });
-    setMsg("Simulated scan of " + uid, "ok");
+    if (!res.ok) {
+      setMsg("Claim failed: " + await res.text(), "err");
+      return;
+    }
+    const chip = await res.json();
+    document.querySelector(`tr[data-uid="${uid}"]`)?.remove();
+    addOrUpdateRow(chip);
+    $("f-uid").value = chip.uid;
+    setMsg("Migrated to real UID " + chip.uid + ". Tap that chip now to test.", "ok");
   });
 
   $("btn-autofill").addEventListener("click", async () => {
